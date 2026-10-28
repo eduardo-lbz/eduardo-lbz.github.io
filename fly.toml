@@ -1,0 +1,24 @@
+# fly.toml — Configuração do deploy no Fly.io
+# Documentação: https://fly.io/docs/reference/configuration/
+
+app = "eduardo-lbz-portfolio"
+primary_region = "gru"  # São Paulo (mais próximo do Brasil)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true          # Redireciona HTTP → HTTPS automaticamente
+  auto_stop_machines = true   # Para a máquina quando não há tráfego (economiza créditos)
+  auto_start_machines = true  # Reinicia automaticamente quando chega uma requisição
+  min_machines_running = 0    # Pode chegar a 0 máquinas quando ocioso
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+[[vm]]
+  size = "shared-cpu-1x"   # Menor plano (gratuito no free tier)
+  memory = "256mb"
