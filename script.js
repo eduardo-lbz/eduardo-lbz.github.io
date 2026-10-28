@@ -1,4 +1,24 @@
 /* ==========================================
+   UTILITÁRIOS
+   ========================================== */
+
+/** Verifica se o elemento já está visível no viewport atual */
+function isAlreadyInViewport(el) {
+  const rect = el.getBoundingClientRect();
+  return rect.top < window.innerHeight && rect.bottom > 0;
+}
+
+/** Aplica reveal imediato OU observa para revelar ao entrar na tela */
+function observeElement(el, observer) {
+  if (isAlreadyInViewport(el)) {
+    // Já está na tela: revela sem delay (ex: conteúdo do hero no mobile)
+    requestAnimationFrame(() => el.classList.add('visible'));
+  } else {
+    observer.observe(el);
+  }
+}
+
+/* ==========================================
    SCROLL REVEAL - Intersection Observer
    ========================================== */
 const revealObserver = new IntersectionObserver(
@@ -6,60 +26,79 @@ const revealObserver = new IntersectionObserver(
     entries.forEach((entry) => {
       if (entry.isIntersecting) {
         entry.target.classList.add('visible');
+        revealObserver.unobserve(entry.target); // revela só uma vez
       }
     });
   },
-  { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+  {
+    threshold: 0,          // dispara assim que 1px aparece
+    rootMargin: '0px',     // sem corte negativo
+  }
 );
 
-// Registra elementos de scroll reveal
 function setupScrollReveal() {
   // Section headers
   document.querySelectorAll('.section-header').forEach((el) => {
     el.classList.add('reveal');
-    revealObserver.observe(el);
+    observeElement(el, revealObserver);
   });
 
-  // Title underlines
+  // Title underlines (observer separado para a animação de largura)
   document.querySelectorAll('.title-underline').forEach((el) => {
-    revealObserver.observe(el);
+    observeElement(el, revealObserver);
   });
 
   // About cards com stagger
   document.querySelectorAll('.about-grid .about-card').forEach((el, i) => {
-    el.classList.add('reveal', `stagger-${Math.min(i + 1, 5)}`);
-    revealObserver.observe(el);
+    el.classList.add('reveal');
+    if (i > 0) el.style.transitionDelay = `${i * 0.15}s`;
+    observeElement(el, revealObserver);
   });
 
   // Project cards com stagger
   document.querySelectorAll('.projects-grid .project-card').forEach((el, i) => {
-    el.classList.add('reveal', `stagger-${Math.min(i + 1, 5)}`);
-    revealObserver.observe(el);
+    el.classList.add('reveal');
+    if (i > 0) el.style.transitionDelay = `${i * 0.15}s`;
+    observeElement(el, revealObserver);
   });
 
   // Skill categories com stagger
   document.querySelectorAll('.skills-grid .skill-category').forEach((el, i) => {
-    el.classList.add('reveal', `stagger-${Math.min(i + 1, 5)}`);
-    revealObserver.observe(el);
+    el.classList.add('reveal');
+    if (i > 0) el.style.transitionDelay = `${i * 0.1}s`;
+    observeElement(el, revealObserver);
   });
 
   // Contact cards com stagger
   document.querySelectorAll('.contact-cards .contact-card').forEach((el, i) => {
-    el.classList.add('reveal', `stagger-${Math.min(i + 1, 5)}`);
-    revealObserver.observe(el);
+    el.classList.add('reveal');
+    if (i > 0) el.style.transitionDelay = `${i * 0.15}s`;
+    observeElement(el, revealObserver);
   });
 
   // Timeline items com slide da esquerda
   document.querySelectorAll('.timeline-item').forEach((el, i) => {
-    el.classList.add('reveal-left', `stagger-${Math.min(i + 1, 5)}`);
-    revealObserver.observe(el);
+    el.classList.add('reveal-left');
+    if (i > 0) el.style.transitionDelay = `${i * 0.2}s`;
+    observeElement(el, revealObserver);
   });
 
   // Soft skills box
   document.querySelectorAll('.soft-skills-box').forEach((el) => {
     el.classList.add('reveal');
-    revealObserver.observe(el);
+    observeElement(el, revealObserver);
   });
+
+  // Segurança: após 2.5s revela tudo que ainda estiver invisível
+  // (garante que nada fica preso em opacity:0 em browsers problemáticos)
+  setTimeout(() => {
+    document.querySelectorAll('.reveal:not(.visible), .reveal-left:not(.visible)').forEach((el) => {
+      el.classList.add('visible');
+    });
+    document.querySelectorAll('.title-underline:not(.visible)').forEach((el) => {
+      el.classList.add('visible');
+    });
+  }, 2500);
 }
 
 /* ==========================================
@@ -86,16 +125,11 @@ function typeEffect(element, texts, typingSpeed = 75, deletingSpeed = 40, pauseT
       charIndex++;
     }
 
-    // Fim da palavra → pausar e depois deletar
     if (!isDeleting && charIndex === currentText.length) {
-      setTimeout(() => {
-        isDeleting = true;
-        tick();
-      }, pauseTime);
+      setTimeout(() => { isDeleting = true; tick(); }, pauseTime);
       return;
     }
 
-    // Palavra deletada → próxima
     if (isDeleting && charIndex === 0) {
       isDeleting = false;
       textIndex = (textIndex + 1) % texts.length;
@@ -125,6 +159,9 @@ function setupTypingEffect() {
    PARTÍCULAS FLUTUANTES
    ========================================== */
 function createParticles() {
+  // Evita criar partículas em telas muito pequenas (economia de performance)
+  if (window.innerWidth < 480) return;
+
   const wrapper = document.createElement('div');
   wrapper.setAttribute('aria-hidden', 'true');
   wrapper.style.cssText = [
@@ -143,21 +180,21 @@ function createParticles() {
 
   for (let i = 0; i < 22; i++) {
     const p = document.createElement('div');
-    const size       = Math.random() * 2.5 + 0.8;
-    const x          = Math.random() * 100;
-    const duration   = Math.random() * 22 + 16;
-    const delay      = Math.random() * -25; // negativo para começar no meio
-    const opacity    = (Math.random() * 0.25 + 0.06).toFixed(2);
-    const colorRaw   = colors[Math.floor(Math.random() * colors.length)];
-    const color      = colorRaw.replace('VAL', opacity);
+    const size     = Math.random() * 2.5 + 0.8;
+    const x        = Math.random() * 100;
+    const duration = Math.random() * 22 + 16;
+    const delay    = Math.random() * -25;
+    const opacity  = (Math.random() * 0.25 + 0.06).toFixed(2);
+    const colorRaw = colors[Math.floor(Math.random() * colors.length)];
+    const color    = colorRaw.replace('VAL', opacity);
 
     p.style.cssText = [
-      `position:absolute`,
-      `bottom:-6px`,
+      'position:absolute',
+      'bottom:-6px',
       `left:${x}%`,
       `width:${size}px`,
       `height:${size}px`,
-      `border-radius:50%`,
+      'border-radius:50%',
       `background:${color}`,
       `animation:particleRise ${duration}s linear ${delay}s infinite`,
     ].join(';');
@@ -176,16 +213,14 @@ function setupNavbar() {
   const navLinks = document.querySelectorAll('.nav-links a');
   const sections = document.querySelectorAll('main section[id]');
 
-  // Sombra ao rolar
   window.addEventListener('scroll', () => {
-    if (window.scrollY > 60) {
-      header.style.boxShadow = '0 4px 30px rgba(0,0,0,0.35)';
-    } else {
-      header.style.boxShadow = 'none';
-    }
+    header.style.boxShadow = window.scrollY > 60
+      ? '0 4px 30px rgba(0,0,0,0.35)'
+      : 'none';
   }, { passive: true });
 
-  // Link ativo conforme seção visível
+  if (sections.length === 0) return;
+
   const sectionObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
